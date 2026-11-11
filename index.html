@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>💌 우리들의 디지털 롤링페이퍼</title>
+  
+  <!-- 구글 폰트: 감성적인 손글씨(Gaegu)와 본문 가독성(Pretendard/Noto Sans KR) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+  
+  <!-- CSS 스타일시트 -->
+  <link rel="stylesheet" href="style.css" />
+  
+  <!-- Supabase JS CDN (v2) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- 폭죽 애니메이션 라이브러리 -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+</head>
+<body>
+  <!-- Supabase 미설정 시 나타나는 친절한 안내 배너 -->
+  <div id="setup-warning" class="setup-banner hidden">
+    <span>⚠️ <strong>Supabase 설정이 필요합니다!</strong> <code>config.js</code> 파일에 Project URL과 Anon Key를 입력해주세요. (현재는 데모 모드로 동작 중입니다)</span>
+  </div>
+
+  <div class="app-container">
+    <!-- 헤더 영역 -->
+    <header class="main-header">
+      <div class="header-badge">✨ Open Rolling Paper</div>
+      <h1 class="header-title">🎉 우리들의 디지털 롤링페이퍼</h1>
+      <p class="header-desc">
+        누구나 자유롭게 따뜻한 축하와 응원의 메시지를 남겨보세요.<br>
+        실시간으로 공유되는 소중한 이야기들이 모이는 공간입니다 💌
+      </p>
+
+      <!-- 통계 및 빠른 액션 -->
+      <div class="stats-bar">
+        <div class="stat-pill">
+          <span class="stat-icon">📝</span>
+          <span>남겨진 메모: <strong id="total-notes-count">0</strong>개</span>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-icon">💖</span>
+          <span>받은 응원: <strong id="total-likes-count">0</strong>개</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- 검색 및 필터 컨트롤 바 -->
+    <section class="control-panel">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="search-input" placeholder="작성자 또는 내용 검색..." />
+      </div>
+
+      <div class="filter-actions">
+        <select id="sort-select" class="custom-select">
+          <option value="newest">🕒 최신순</option>
+          <option value="popular">❤️ 인기순</option>
+          <option value="oldest">⏳ 오래된순</option>
+        </select>
+
+        <button id="open-write-btn" class="btn btn-primary pulse-btn">
+          <span>✍️ 새 메모 남기기</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- 롤링페이퍼 보드 (메모들이 핀으로 꽂히는 공간) -->
+    <main class="board-wrapper">
+      <div id="notes-grid" class="notes-grid">
+        <!-- 자바스크립트로 메모 카드가 동적으로 들어옵니다 -->
+      </div>
+
+      <!-- 로딩 스피너 -->
+      <div id="loading-state" class="state-message">
+        <div class="spinner"></div>
+        <p>따뜻한 메모들을 불러오는 중입니다...</p>
+      </div>
+
+      <!-- 메모가 하나도 없을 때 표시 -->
+      <div id="empty-state" class="state-message hidden">
+        <div class="empty-icon">🎈</div>
+        <h3>아직 등록된 메모가 없어요!</h3>
+        <p>가장 먼저 첫 번째 축하 메시지를 남겨보세요.</p>
+        <button class="btn btn-primary write-trigger-btn">첫 메모 쓰기</button>
+      </div>
+    </main>
+
+    <!-- 푸터 -->
+    <footer class="main-footer">
+      <p>Made with ❤️ using <strong>GitHub</strong>, <strong>Supabase</strong> & <strong>Vercel</strong></p>
+      <p class="footer-sub">새로고침 없이 실시간으로 메시지가 연동됩니다.</p>
+    </footer>
+  </div>
+
+  <!-- 플로팅 글쓰기 버튼 (모바일 화면용) -->
+  <button id="floating-write-btn" class="floating-btn" title="새 메모 남기기">
+    ✍️
+  </button>
+
+  <!-- 메모 작성 모달 -->
+  <div id="write-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>💌 새 메모 남기기</h2>
+        <button id="close-modal-btn" class="close-btn" aria-label="닫기">&times;</button>
+      </div>
+
+      <form id="note-form" class="modal-body">
+        <!-- 닉네임 입력 -->
+        <div class="form-group">
+          <label for="author-input">작성자 (이름 / 닉네임) <span class="required">*</span></label>
+          <input 
+            type="text" 
+            id="author-input" 
+            placeholder="예: 든든한 동기 김코딩" 
+            maxlength="20" 
+            required 
+          />
+        </div>
+
+        <!-- 이모지/스티커 선택 -->
+        <div class="form-group">
+          <label>스티커 고르기</label>
+          <div class="emoji-picker" id="emoji-picker">
+            <button type="button" class="emoji-opt active" data-emoji="🎉">🎉</button>
+            <button type="button" class="emoji-opt" data-emoji="💖">💖</button>
+            <button type="button" class="emoji-opt" data-emoji="🍀">🍀</button>
+            <button type="button" class="emoji-opt" data-emoji="✨">✨</button>
+            <button type="button" class="emoji-opt" data-emoji="🎂">🎂</button>
+            <button type="button" class="emoji-opt" data-emoji="💪">💪</button>
+            <button type="button" class="emoji-opt" data-emoji="☕">☕</button>
+            <button type="button" class="emoji-opt" data-emoji="🧸">🧸</button>
+            <button type="button" class="emoji-opt" data-emoji="🔥">🔥</button>
+          </div>
+        </div>
+
+        <!-- 포스트잇 색상 선택 -->
+        <div class="form-group">
+          <label>포스트잇 색상</label>
+          <div class="color-picker" id="color-picker">
+            <button type="button" class="color-opt active" data-color="#fff9c4" style="background: #fff9c4;" title="레몬 옐로우"></button>
+            <button type="button" class="color-opt" data-color="#ffcdd2" style="background: #ffcdd2;" title="체리 핑크"></button>
+            <button type="button" class="color-opt" data-color="#c8e6c9" style="background: #c8e6c9;" title="민트 그린"></button>
+            <button type="button" class="color-opt" data-color="#bbdefb" style="background: #bbdefb;" title="파스텔 스카이"></button>
+            <button type="button" class="color-opt" data-color="#e1bee7" style="background: #e1bee7;" title="라벤더 퍼플"></button>
+            <button type="button" class="color-opt" data-color="#ffe0b2" style="background: #ffe0b2;" title="피치 오렌지"></button>
+          </div>
+        </div>
+
+        <!-- 메모 본문 입력 -->
+        <div class="form-group">
+          <div class="label-with-counter">
+            <label for="content-input">남길 메시지 <span class="required">*</span></label>
+            <span class="char-count"><span id="char-current">0</span> / 300</span>
+          </div>
+          <textarea 
+            id="content-input" 
+            rows="5" 
+            placeholder="따뜻한 응원, 축하, 하고 싶었던 이야기를 자유롭게 적어주세요!" 
+            maxlength="300" 
+            required
+          ></textarea>
+        </div>
+
+        <!-- 버튼 영역 -->
+        <div class="modal-footer">
+          <button type="button" id="cancel-btn" class="btn btn-secondary">취소</button>
+          <button type="submit" id="submit-btn" class="btn btn-primary">
+            <span>롤링페이퍼에 붙이기 📌</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 토스트 알림 메시지 -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- 스크립트 연결: 설정 파일 -> 메인 애플리케이션 -->
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
+
