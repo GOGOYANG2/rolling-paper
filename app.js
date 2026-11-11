@@ -72,11 +72,14 @@ let selectedColor = "#fff9c4";
 // ========================================================
 function initApp() {
   const cfg = window.SUPABASE_CONFIG || {};
-  const isKeyUnset = 
-    !cfg.url || 
-    !cfg.anonKey || 
-    cfg.url.includes("YOUR_SUPABASE") || 
-    cfg.anonKey.includes("YOUR_SUPABASE");
+  let cleanUrl = (cfg.url || "").trim().replace(/\/rest\/v1\/?$/, "").replace(/\/+$/, "");
+  let cleanAnonKey = (cfg.anonKey || "").trim();
+
+  const isKeyUnset =
+    !cleanUrl ||
+    !cleanAnonKey ||
+    cleanUrl.includes("YOUR_SUPABASE") ||
+    cleanAnonKey.includes("YOUR_SUPABASE");
 
   if (isKeyUnset) {
     // Supabase 설정이 아직 안 되어 있으면 친절한 데모 모드로 작동!
@@ -91,7 +94,7 @@ function initApp() {
     isDemoMode = false;
     setupWarningEl.classList.add("hidden");
     try {
-      supabaseClient = window.supabase.createClient(cfg.url, cfg.anonKey);
+      supabaseClient = window.supabase.createClient(cleanUrl, cleanAnonKey);
       fetchNotesFromSupabase();
       subscribeRealtimeChanges();
     } catch (err) {
